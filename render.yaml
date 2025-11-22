@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: music-rezyyy-bot
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt && apt-get update && apt-get install -y ffmpeg
+    startCommand: python main.py
+    envVars:
+      BOT_TOKEN: 8343857314:AAHSnyYVC52D2ZlF9CkBXD30Bwa35drydP0
