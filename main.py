@@ -40,7 +40,7 @@ async def get_lang(user_id):
 
 async def set_lang(user_id, lang):
     async with aiosqlite.connect(DB) as db:
-        await db.execute("INSERT OR REPLACE INTO users (user_id, lang, searchesches) VALUES (?, ?, COALESCE((SELECT searches FROM users WHERE user_id = ?), 0))", (user_id, lang, user_id))
+        await db.execute("INSERT OR REPLACE INTO users (user_id, lang, searches) VALUES (?, ?, COALESCE((SELECT searches FROM users WHERE user_id = ?), 0))", (user_id, lang, user_id))
         await db.commit()
 
 async def add_search(user_id):
@@ -145,7 +145,7 @@ async def handle_text(message: Message):
     except:
         await message.answer(langs["ru"]["error"])
 
-# Фикс для Render (убирает "No open ports")
+# Фикс порта для Render
 async def web_server():
     app = web.Application()
     app.router.add_get('/', lambda _: web.Response(text="OK"))
