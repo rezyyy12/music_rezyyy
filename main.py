@@ -3,14 +3,13 @@ import asyncio
 import logging
 import aiosqlite
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, FSInputFile, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.filters import CommandStart
+from aiogram.types import Message, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from yt_dlp import YoutubeDL
 import re
-import tempfile
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,20 +19,19 @@ dp = Dispatcher(storage=storage)
 
 DB = "users.db"
 
-# Языки
 langs = {
-    "ru": {"start": "🎧 Выбери язык / Обери мову", "main_menu": "🎵 Главное меню", "search": "🔍 Искать трек", "profile": "👤 Профиль", "settings": "⚙️ Настройки",
-           "send_link": "Кидай ссылку на трек!\nПоддерживаю: Spotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Вы искали треков: {}", "add_track": "🎤 Добавить свой трек (кинь mp3 файл)", 
-           "support": "📞 Поддержка", "donate": "💰 Донат", "donate_text": "Вы можете задонатить для поддержки бота ❤️\n@t.me/send?start=IVOVPkOps64C", "lang": "🌍 Язык", "choose_lang": "Выберите язык:"},
+    "ru": {"start": "🎧 Выбери язык", "main_menu": "🎵 Главное меню", "search": "🔍 Искать трек", "profile": "👤 Профиль", "settings": "⚙️ Настройки",
+           "send_link": "Кидай ссылку на трек!\nПоддерживаю: Spotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Вы искали треков: {}", "add_track": "🎤 Добавить свой трек (кинь mp3)", 
+           "support": "📞 Поддержка", "donate": "💰 Донат", "donate_text": "Спасибо за поддержку ❤️\n t.me/send?start=IVOVPkOps64C", "lang": "🌍 Язык"},
     "ua": {"start": "🎧 Обери мову", "main_menu": "🎵 Головне меню", "search": "🔍 Шукати трек", "profile": "👤 Профіль", "settings": "⚙️ Налаштування",
-           "send_link": "Кидай посилання на трек!\nПідтримую: Spotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Ви шукали треків: {}", "add_track": "🎤 Додати свій трек (кинь mp3)", 
-           "support": "📞 Підтримка", "donate": "💰 Донат", "donate_text": "Ви можете задонатити для підтримки ❤️\n@t.me/send?start=IVOVPkOps64C", "lang": "🌍 Мова", "choose_lang": "Оберіть мову:"},
+           "send_link": "Кидай посилання!\nSpotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Ви шукали треків: {}", "add_track": "🎤 Додати трек (кинь mp3)", 
+           "support": "📞 Підтримка", "donate": "💰 Донат", "donate_text": "Дякую за підтримку ❤️\n t.me/send?start=IVOVPkOps64C", "lang": "🌍 Мова"},
     "en": {"start": "🎧 Choose language", "main_menu": "🎵 Main menu", "search": "🔍 Search track", "profile": "👤 Profile", "settings": "⚙️ Settings",
            "send_link": "Send track link!\nSupported: Spotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Tracks searched: {}", "add_track": "🎤 Add your track (send mp3)", 
-           "support": "📞 Support", "donate": "💰 Donate", "donate_text": "You can donate to support the bot ❤️\n@t.me/send?start=IVOVPkOps64C", "lang": "🌍 Language", "choose_lang": "Choose language:"},
+           "support": "📞 Support", "donate": "💰 Donate", "donate_text": "Thanks for support ❤️\n t.me/send?start=IVOVPkOps64C", "lang": "🌍 Language"},
     "de": {"start": "🎧 Sprache wählen", "main_menu": "🎵 Hauptmenü", "search": "🔍 Titel suchen", "profile": "👤 Profil", "settings": "⚙️ Einstellungen",
-           "send_link": "Link zum Titel schicken!\nUnterstützt: Spotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Titel gesucht: {}", "add_track": "🎤 Eigenen Titel hinzufügen (mp3 senden)", 
-           "support": "📞 Support", "donate": "💰 Spende", "donate_text": "Du kannst spenden um den Bot zu unterstützen ❤️\n@t.me/send?start=IVOVPkOps64C", "lang": "🌍 Sprache", "choose_lang": "Sprache wählen:"}
+           "send_link": "Link schicken!\nSpotify, YouTube, Apple Music, Deezer, VK, SoundCloud", "search_count": "Titel gesucht: {}", "add_track": "🎤 Titel hinzufügen (mp3)", 
+           "support": "📞 Support", "donate": "💰 Spende", "donate_text": "Danke für die Unterstützung ❤️\n t.me/send?start=IVOVPkOps64C", "lang": "🌍 Sprache"}
 }
 
 async def get_lang(user_id):
@@ -60,11 +58,7 @@ async def get_searches(user_id):
 
 async def init_db():
     async with aiosqlite.connect(DB) as db:
-        await db.execute("""CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            lang TEXT DEFAULT 'ru',
-            searches INTEGER DEFAULT 0
-        )""")
+        await db.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, lang TEXT DEFAULT 'ru', searches INTEGER DEFAULT 0)")
         await db.commit()
 
 def main_keyboard(lang):
@@ -77,10 +71,8 @@ def main_keyboard(lang):
 
 def lang_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru"),
-         InlineKeyboardButton("🇺🇦 Українська", callback_data="lang_ua")],
-        [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
-         InlineKeyboardButton("🇩🇪 Deutsch", callback_data="lang_de")]
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru"), InlineKeyboardButton(text="🇺🇦 Українська", callback_data="lang_ua")],
+        [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en"), InlineKeyboardButton(text="🇩🇪 Deutsch", callback_data="lang_de")]
     ])
 
 def settings_keyboard(lang):
@@ -89,7 +81,7 @@ def settings_keyboard(lang):
         [InlineKeyboardButton(text=t["support"], url="https://t.me/the_rezyyy")],
         [InlineKeyboardButton(text=t["donate"], callback_data="donate")],
         [InlineKeyboardButton(text=t["lang"], callback_data="change_lang")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back")]
     ])
 
 class AddTrack(StatesGroup):
@@ -110,7 +102,8 @@ async def set_language(call: CallbackQuery):
 @dp.callback_query(lambda c: c.data == "back")
 async def back(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
-    await call.message.edit_text(langs[lang]["main_menu"], reply_markup=main_keyboard(lang))
+    t = langs[lang]
+    await call.message.edit_text(t["main_menu"], reply_markup=main_keyboard(lang))
 
 @dp.callback_query(lambda c: c.data == "search")
 async def search(call: CallbackQuery):
@@ -125,7 +118,7 @@ async def profile(call: CallbackQuery):
     searches = await get_searches(call.from_user.id)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["add_track"], callback_data="add_own")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back")]
     ])
     await call.message.edit_text(t["search_count"].format(searches), reply_markup=keyboard)
 
@@ -144,11 +137,7 @@ async def receive_own_track(message: Message, state: FSMContext):
     t = langs[lang]
     await add_search(message.from_user.id)
     file = message.audio or message.document
-    await message.answer_audio(
-        audio=file.file_id,
-        title=file.title or "Your track",
-        performer=file.performer or message.from_user.username or "Unknown"
-    )
+    await message.answer_audio(audio=file.file_id, title=file.title or "Your track", performer=file.performer or "You")
     await state.clear()
     await message.answer(t["main_menu"], reply_markup=main_keyboard(lang))
 
@@ -165,59 +154,40 @@ async def change_lang(call: CallbackQuery):
 async def donate(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
     t = langs[lang]
-    await call.message.edit_text(t["donate_text"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
+    await call.message.edit_text(t["donate_text"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back")]]))
 
-# ============ ОБРАБОТКА ССЫЛОК ============
-SPOTIFY_REGEX = re.compile(r"https?://open\.spotify\.com/track/([a-zA-Z0-9]+)")
-YOUTUBE_REGEX = re.compile(r"https?://(www\.)?(youtube\.com|youtu\.be)/.+")
-APPLE_REGEX = re.compile(r"https?://music\.apple\.com/.+/song/.+")
-DEEZER_REGEX = re.compile(r"https?://deezer\.com/.+/track/\d+")
-SOUNDCLOUD_REGEX = re.compile(r"https?://soundcloud\.com/.+/.+")
-VK_REGEX = re.compile(r"https?://vk\.com/audio.+")
-
+# Скачивание треков
 async def download_and_send(url: str, message: Message):
     await add_search(message.from_user.id)
     await message.answer("🔍")
-    
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'outtmpl': '%(id)s.%(ext)s',
         'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
     }
-    
     with YoutubeDL(ydl_opts) as ydl:
         try:
-            info = ydl.extract_info(url if "ytsearch" in url or "youtube" in url else f"ytsearch:{url}", download= not ("youtube.com" in url or "youtu.be" in url))
-            if not info:
-                info = ydl.extract_info(url, download=True)
+            info = ydl.extract_info(url if "youtube" in url or "youtu.be" in url else f"ytsearch:{url}", download=True)
             title = info.get('title', 'Unknown')
             artist = info.get('uploader', info.get('artist', 'Unknown'))
             duration = info.get('duration')
             thumb = info.get('thumbnail')
-
-            files = [f for f in os.listdir('.') if f.startswith(info.get('id', 'temp')) and f.endswith('.mp3')]
-            if not files:
+            files = [f for f in os.listdir('.') if f.startswith(info.get('id', '')) and f.endswith('.mp3')]
+            if files:
+                path = files[0]
+                with open(path, 'rb') as f:
+                    await message.answer_audio(audio=BufferedInputFile(f.read(), f"{title}.mp3"), title=title, performer=artist, duration=duration, thumbnail=thumb)
+                os.remove(path)
+            else:
                 await message.answer("❌ Не удалось скачать")
-                return
-            path = files[0]
-            
-            with open(path, 'rb') as f:
-                await message.answer_audio(
-                    audio=BufferedInputFile(f.read(), f"{title}.mp3"),
-                    title=title,
-                    performer=artist,
-                    duration=duration,
-                    thumbnail=thumb
-                )
-            os.remove(path)
-        except Exception as e:
-            await message.answer(f"❌ Ошибка")
+        except:
+            await message.answer("❌ Ошибка")
 
 @dp.message()
 async def handle_message(message: Message):
     text = message.text or ""
-    if any(r.search(text) for r in [SPOTIFY_REGEX, YOUTUBE_REGEX, APPLE_REGEX, DEEZER_REGEX, SOUNDCLOUD_REGEX, VK_REGEX]):
+    if re.search(r"https?://", text):
         await download_and_send(text, message)
     else:
         await download_and_send(f"ytsearch:{text}", message)
