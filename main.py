@@ -26,7 +26,7 @@ langs = {
         "profile": "👤 Профиль",
         "settings": "⚙️ Настройки",
         "send_link": "Кидай ссылку или название трека!\nSpotify • YouTube • Apple Music • Deezer • VK • SoundCloud",
-        "wrong": "Бро, кидай только ссылку или название 😅",
+        "wrong": "Бро, кидай только ссылку или название трека 😅",
         "error": "❌ Не смог скачать, попробуй другую ссылку",
         "search_count": "Ты нашёл треков: {}"
     }
@@ -108,7 +108,7 @@ async def wrong(message: Message):
 @dp.message()
 async def handle_text(message: Message):
     await add_search(message.from_user.id)
-    await message.answer("🔍")
+    await message.answer("🔍 Ищу…")
 
     query = message.text.strip()
     search = query if re.search(r"https?://", query) else f"ytsearch:{query}"
@@ -142,10 +142,11 @@ async def handle_text(message: Message):
                 os.remove(path)
             else:
                 await message.answer(langs["ru"]["error"])
-    except:
+    except Exception as e:
+        logging.error(e)
         await message.answer(langs["ru"]["error"])
 
-# Фикс порта для Render
+# Фикс порта для Render (убирает "No open ports")
 async def web_server():
     app = web.Application()
     app.router.add_get('/', lambda _: web.Response(text="OK"))
