@@ -5,9 +5,9 @@ import aiosqlite
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from yt_dlp import YoutubeDL
+from aiohttp import web
 import re
 
 logging.basicConfig(level=logging.INFO)
@@ -26,11 +26,10 @@ langs = {
         "profile": "👤 Профиль",
         "settings": "⚙️ Настройки",
         "send_link": "Кидай ссылку или название трека!\nSpotify • YouTube • Apple Music • Deezer • VK • SoundCloud",
-        "wrong": "Бро, кидай только ссылку или название трека 😅",
-        "error": "❌ Не смог скачать, попробуй другую ссылку или название",
+        "wrong": "Бро, кидай только ссылку или название 😅",
+        "error": "❌ Не смог скачать, попробуй другую ссылку",
         "search_count": "Ты нашёл треков: {}"
     }
-    # другие языки добавишь сам если надо
 }
 
 async def get_lang(user_id):
@@ -41,7 +40,7 @@ async def get_lang(user_id):
 
 async def set_lang(user_id, lang):
     async with aiosqlite.connect(DB) as db:
-        await db.execute("INSERT OR REPLACE INTO users (user_id, lang, searches) VALUES (?, ?, COALESCE((SELECT searches FROM users WHERE user_id = ?), 0))", (user_id, lang, user_id))
+        await db.execute("INSERT OR REPLACE INTO users (user_id, lang, searchesches) VALUES (?, ?, COALESCE((SELECT searches FROM users WHERE user_id = ?), 0))", (user_id, lang, user_id))
         await db.commit()
 
 async def add_search(user_id):
@@ -60,7 +59,7 @@ async def init_db():
         await db.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, lang TEXT DEFAULT 'ru', searches INTEGER DEFAULT 0)")
         await db.commit()
 
-def main_keyboard(lang):
+def main_keyboard(lang="ru"):
     t = langs[lang]
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["search"], callback_data="search")],
@@ -85,47 +84,34 @@ async def start(message: Message):
 async def set_language(call: CallbackQuery):
     lang = call.data.split("_")[1]
     await set_lang(call.from_user.id, lang)
-    t = langs.get(lang, langs["ru"])
-    await call.message.edit_text(t["main_menu"], reply_markup=main_keyboard(lang))
+    await call.message.edit_text(langs["ru"]["main_menu"], reply_markup=main_keyboard(lang))
 
 @dp.callback_query(lambda c: c.data == "back")
 async def back(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
-    t = langs.get(lang, langs["ru"])
-    await call.message.edit_text(t["main_menu"],"], reply_markup=main_keyboard(lang))
+    await call.message.edit_text(langs["ru"]["main_menu"], reply_markup=main_keyboard(lang))
 
 @dp.callback_query(lambda c: c.data == "search")
 async def search(call: CallbackQuery):
     lang = await get_lang(call.from_user.id)
-    t = langs.get(lang, langs["ru"])
-    await call.message.edit_text(t["send_link"])
+    await call.message.edit_text(langs["ru"]["send_link"])
 
 @dp.callback_query(lambda c: c.data == "profile")
 async def profile(call: CallbackQuery):
-    lang = await get_lang(call.from_user.id)
-    t = langs.get(lang, langs["ru"])
     searches = await get_searches(call.from_user.id)
-    await call.message.edit_text(t["search_count"].format(searches), reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back")]]))
+    await call.message.edit_text(langs["ru"]["search_count"].format(searches), reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back")]]))
 
-@dp.callback_query(lambda c: c.data == "settings")
-async def settings(call: CallbackQuery):
-    await call.message.edit_text("⚙️ Настройки скоро будут", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="back")]]))
-
-# Ругань на всё кроме текста
 @dp.message(lambda message: not message.text)
 async def wrong(message: Message):
-    lang = await get_lang(message.from_user.id)
-    t = langs.get(lang, langs["ru"])
-    await message.answer(t["wrong"])
+    await message.answer(langs["ru"]["wrong"])
 
-# Основная обработка ссылок и поиска
 @dp.message()
 async def handle_text(message: Message):
     await add_search(message.from_user.id)
-    await message.answer("🔍 Ищу…")
+    await message.answer("🔍")
 
     query = message.text.strip()
-    search_query = query if re.search(r"https?://", query) else f"ytsearch:{query}"
+    search = query if re.search(r"https?://", query) else f"ytsearch:{query}"
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -136,35 +122,41 @@ async def handle_text(message: Message):
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(search_query, download=True)
+            info = ydl.extract_info(search, download=True)
             title = info.get('title', 'Unknown')
             artist = info.get('uploader', info.get('artist', 'Unknown'))
             duration = info.get('duration')
             thumb = info.get('thumbnail')
 
             files = [f for f in os.listdir('.') if f.endswith('.mp3')]
-            if not files:
-                lang = await get_lang(message.from_user.id)
-                await message.answer(langs.get(lang, langs["ru"])["error"])
-                return
+            if files:
+                path = max(files, key=os.path.getctime)
+                with open(path, 'rb') as f:
+                    await message.answer_audio(
+                        audio=BufferedInputFile(f.read(), f"{title}.mp3"),
+                        title=title,
+                        performer=artist,
+                        duration=duration,
+                        thumbnail=thumb
+                    )
+                os.remove(path)
+            else:
+                await message.answer(langs["ru"]["error"])
+    except:
+        await message.answer(langs["ru"]["error"])
 
-            path = max(files, key=os.path.getctime)  # берём самый свежий
-            with open(path, 'rb') as audio_file:
-                await message.answer_audio(
-                    audio=BufferedInputFile(audio_file.read(), filename=f"{title}.mp3"),
-                    title=title,
-                    performer=artist,
-                    duration=duration,
-                    thumbnail=thumb
-                )
-            os.remove(path)
-    except Exception as e:
-        logging.error(e)
-        lang = await get_lang(message.from_user.id)
-        await message.answer(langs.get(lang, langs["ru"])["error"])
+# Фикс для Render (убирает "No open ports")
+async def web_server():
+    app = web.Application()
+    app.router.add_get('/', lambda _: web.Response(text="OK"))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', os.getenv("PORT", 10000))
+    await site.start()
 
 async def main():
     await init_db()
+    asyncio.create_task(web_server())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
