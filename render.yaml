@@ -4,7 +4,8 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt && apt-get update && apt-get install -y ffmpeg
+    buildCommand: pip install -r requirements.txt && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz | tar -xJ && mv ffmpeg-*-amd64-static/ffmpeg ffmpeg-*-amd64-static/ffprobe .
     startCommand: python main.py
     envVars:
       BOT_TOKEN: 8343857314:AAHSnyYVC52D2ZlF9CkBXD30Bwa35drydP0
+      PATH: ./:$PATH
