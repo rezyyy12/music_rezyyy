@@ -1,11 +1,12 @@
 services:
   - type: web
     name: music-rezyyy-bot
-    env: python
+    env: docker
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz | tar -xJ && mv ffmpeg-*-amd64-static/ffmpeg ffmpeg-*-amd64-static/ffprobe . && chmod +x ffmpeg ffprobe
-    startCommand: python main.py
+    dockerfilePath: ./Dockerfile
     envVars:
-      BOT_TOKEN: ${BOT_TOKEN}
-      PATH: ./:$PATH
+      - key: BOT_TOKEN
+        value: ${BOT_TOKEN}
+      - key: PATH
+        value: /usr/local/bin:$PATH
