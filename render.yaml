@@ -6,7 +6,4 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: BOT_TOKEN
-        value: ${BOT_TOKEN}
-      - key: PATH
-        value: /usr/local/bin:$PATH
+      BOT_TOKEN: ${BOT_TOKEN}
