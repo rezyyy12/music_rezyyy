@@ -4,3 +4,5 @@ ffmpeg-python==0.2.0
 pydub==0.25.1
 aiohttp==3.10.5
 aiosqlite==0.20.0
+lyricsgenius==2.0.1
+requests==2.32.3
